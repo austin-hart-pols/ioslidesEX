@@ -1,0 +1,217 @@
+---
+title: "Water Fectching and Child Development"
+subtitle: "Sub-Saharan Africa, 2000-2015"
+author: "Austin Hart"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  ioslides_presentation:
+    widescreen: true
+    css: iocustom.css
+---
+
+```{r setup, include=FALSE}
+  options(htmltools.dir.version = FALSE)
+  knitr::opts_chunk$set(
+    message=FALSE, warning=FALSE, eval = TRUE, echo = FALSE, 
+    fig.align = 'center'
+  )
+```
+
+```{r results='hide'}
+  library(tidyverse)
+  library(scales)
+
+# data: DHS
+  df = haven::read_dta('ssa water.dta') %>%
+    mutate(across(where(haven::is.labelled), ~as_factor(.)))
+  
+# plot theme
+  mytheme = theme_bw() + theme(
+    plot.title = element_text(hjust = 0, size = 16, face = 'bold'),
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 14),
+    axis.text.x = element_text(size = 12),
+    axis.title.x = element_text(margin = unit(c(3, 0, 0, 0), "mm"), size = 14),
+    axis.text.y = element_text(size = 12),
+    axis.title.y = element_text(margin = unit(c(0, 3, 0, 0), "mm"), size = 14),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_line(color = 'gray80',linetype = 'solid',size = 0.35),
+    panel.grid.major.x = element_blank(),
+    axis.ticks = element_blank(),
+    panel.spacing = unit(2, "lines"),
+    plot.margin=unit(c(.2,.2,.2,.2),"cm"),
+    panel.border = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(size = 12, face = 'bold')
+  )  
+
+```
+
+
+# Methodology
+
+
+## Project data
+
+### USAID Demographic and Health Surveys (DHS)
+
+- Data from all DHS Modules, 2000-2015
+- Household surveys in `r nrow(count(df, country))` SSA countries
+- Records for `r format(nrow(df), big.mark = ',')` children, aged 5-14
+- Block randomized sampling within country
+    * Geographic clusters chosen at random
+    * Random sampling among proximate households
+
+
+# Water fetching times
+
+## Fetching times higher among rural households
+
+> Half of urban HHs walk 3 minutes or less to water. 1 in 3 rural HHs more than 30 minutes away.
+
+```{r wfurban}
+
+  df %>%
+    filter(watertime < 180) %>%
+    ggplot(aes(x = 1+watertime, color = rural, fill = rural)) + # 1+ for log10 transform
+    geom_density(aes(y = stat(0.08 * density)), # change axis to percent
+        bw = 0.08, position = 'dodge', alpha = .25, size = 1) +
+    scale_x_log10(breaks = c(0,5,10,30,60,90),labels = c(0,5,10,30,60,90)) +
+    scale_fill_viridis_d(direction = -1, aesthetics = c('fill','color')) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(
+      x = 'Walk time to water (minutes)',
+      y = NULL,
+      color = NULL,
+      fill = NULL,
+      title = "Walk time, rural vs urban households"
+    ) + mytheme
+```
+
+## Wealth buys proximity to water
+
+> Distance to water significantly lower among wealthiest quintiles.
+
+```{r wealth}
+
+  df %>%
+    #start with group medians
+    filter(!is.na(wealth)) %>%
+    group_by(wealth) %>%
+    summarise(
+      MedianWalk = median(watertime, na.rm = TRUE)
+    ) %>%
+  #now plot  
+    ggplot(aes(x = wealth, y = MedianWalk)) +
+      geom_hline(yintercept = 0, color = 'gray60') +
+      geom_segment(aes(xend = wealth, yend = 0), size = .85) +
+      geom_point(shape = 22, color = 'black', fill = 'dodgerblue2', size = 12) +
+      geom_text(aes(label = MedianWalk),
+                color = 'white', size = 4) +
+  # beautify
+      scale_y_continuous(breaks = seq(0,20,10)) +
+      coord_cartesian(ylim = c(0,25)) +
+      labs(
+        title = 'Median walk time by income quintile',
+        x = NULL,
+        y = 'Walk to water source, mins'
+      ) +
+      mytheme +
+      theme(axis.text.y = element_blank())
+```
+
+
+# Water fetching and childhood education
+
+## School attendance invariant to walk time
+
+> Among **urban** HHs, school attendance is slightly higher for boys, but water fetching time is unrelated to attendance for boys or girls.
+
+
+```{r attend}
+
+  df %>%
+    filter(watertime < 120 & rural == 'urban') %>%
+  # make the plot
+    ggplot(aes(y = as.numeric(attend) - 1, x = 1 + watertime, #+1 to enable log scale
+               color = female, linetype = female)) + 
+    geom_smooth(method = 'lm',se = F) +
+  # fix axes
+    scale_y_continuous(
+      limits = c(0,1), breaks = c(0,.5,1),
+      labels = scales::percent
+    ) +
+    scale_x_log10(
+      breaks = c(1,5,10,30,60,120),
+      labels = c(0,5,10,30,60,120)
+    ) +
+  # beautify
+    scale_color_manual( values = c('purple','black') ) +
+    labs(
+      title = 'Attendance over walk time by gender, urban homes',
+      x = 'Walk time (minutes)',
+      y = 'Attending school',
+      color = NULL,
+      linetype = NULL
+    ) +
+    mytheme +
+    theme(
+      panel.grid.major.x = element_line(color = 'gray80'),
+      legend.position = 'top'
+    )
+```
+
+# RMarkdown Reminders
+
+## Setup
+
+### Markdown documents need:
+
+- YAML header
+- Setup code chunk
+- Body of text
+
+## YAML header
+
+- Specifies title, author, date, etc
+- Specifies the output format
+- **Spacing/indentation are critical**
+
+```{r yaml, eval=F, echo=T}
+---
+title: "Water Fectching and Child Development"
+subtitle: "Sub-Saharan Africa, 2000-2015"
+author: "Austin Hart"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  ioslides_presentation:
+    widescreen: true
+    css: iostyle.css
+---
+```
+
+## Setup chunk
+
+- Defines behavior for ALL other code chunks
+- **Must** come first
+- Label explicitly as `setup`
+
+````
+```{r setup, include=FALSE}`r ''`
+  options(htmltools.dir.version = FALSE)
+  knitr::opts_chunk$set(
+    message=FALSE, warning=FALSE, eval=TRUE, echo=FALSE, 
+    fig.align='center'
+  )
+```
+````
+
+## Body of doc/deck
+
+Everything else is a combo of text and `R` code chunks.
+
+Remember:
+
+- Code chunks require *unique* names
+- `Knit` often to diagnose errors
+- Explore different outputs, esp. `Beamer` (requires `tinytex`)
